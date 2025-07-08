@@ -1,0 +1,149 @@
+package com.quickbite.servlet;
+
+import java.io.IOException;
+import java.util.List;
+
+import com.quickbite.dao.RestaurantDAO;
+import com.quickbite.daoimplementation.RestaurantDAOImpl;
+import com.quickbite.model.Restaurant;
+
+import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession; // For basic admin session check
+
+@WebServlet("/admin/restaurants")
+public class AdminRestaurantServlet extends HttpServlet {
+
+    private RestaurantDAO restaurantDAO;
+
+    @Override
+    public void init() throws ServletException {
+        // Initialize the DAO when the servlet starts
+        restaurantDAO = new RestaurantDAOImpl();
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        // --- Basic Admin Authentication Check (Placeholder) ---
+        // In a real application, you'd check if the logged-in user has an 'admin' role.
+        // For simplicity here, we'll just check if *any* user is logged in.
+        // You would typically have a separate login process for admins.
+        HttpSession session = request.getSession(false); // Don't create new session if none exists
+        if (session == null || session.getAttribute("user") == null /* || !isAdmin(session.getAttribute("user")) */) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp"); // Redirect to login page
+            return;
+        }
+        // --- End of Auth Check Placeholder ---
+
+        // Fetch all restaurants to display in the table
+        List<Restaurant> restaurants = restaurantDAO.getAllRestaurants();
+        request.setAttribute("restaurantList", restaurants); // This name matches admin_restaurants.jsp
+
+        // Forward to the JSP page
+        RequestDispatcher dispatcher = request.getRequestDispatcher("/admin_restaurants.jsp");
+        dispatcher.forward(request, response);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        
+        // --- Basic Admin Authentication Check (Placeholder) ---
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("user") == null /* || !isAdmin(session.getAttribute("user")) */) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp");
+            return;
+        }
+        // --- End of Auth Check Placeholder ---
+
+        String action = request.getParameter("action");
+
+        if (action != null) {
+            switch (action) {
+                case "add":
+                    addRestaurant(request, response);
+                    break;
+                case "delete":
+                    deleteRestaurant(request, response);
+                    break;
+                case "edit": // This case handles the GET request for showing the edit form (if implemented)
+                    // For now, it just redirects, but you'd fetch restaurant by ID and forward to a form
+                    response.sendRedirect(request.getContextPath() + "/admin/restaurants?message=edit_feature_coming_soon");
+                    break;
+                default:
+                    // Handle unknown action or show an error
+                    response.sendRedirect(request.getContextPath() + "/admin/restaurants?error=unknown_action");
+                    break;
+            }
+        } else {
+            // No action specified, redirect to main admin page
+            response.sendRedirect(request.getContextPath() + "/admin/restaurants");
+        }
+    }
+
+    private void addRestaurant(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            // Retrieve parameters from the form
+            String name = request.getParameter("name");
+            String address = request.getParameter("address");
+            String phone = request.getParameter("phone");
+            String cuisineType = request.getParameter("cuisineType"); // Matches JSP form field name
+            String eta = request.getParameter("eta");
+            // Ensure adminUserId is properly handled, e.g., fetched from current admin's session or specific input
+            int adminUserId = Integer.parseInt(request.getParameter("adminUserId"));
+            String rating = request.getParameter("rating");
+            String isActive = request.getParameter("isActive");
+            String imagePath = request.getParameter("imagePath");
+
+            // Create a new Restaurant object (Order matches your RestaurantDAOImpl's usage)
+            Restaurant newRestaurant = new Restaurant(0, // ID is 0 as it will be generated by the database
+                                                    name,
+                                                    address,
+                                                    phone,
+                                                    cuisineType, // This will map to getCusineType()
+                                                    eta,
+                                                    isActive,
+                                                    rating,
+                                                    adminUserId,
+                                                    imagePath);
+            
+            // Call the DAO to add the restaurant
+            restaurantDAO.addRestaurant(newRestaurant);
+            
+            // Redirect back to the admin page to show the updated list (Post-Redirect-Get pattern)
+            response.sendRedirect(request.getContextPath() + "/admin/restaurants?message=add_success");
+        } catch (NumberFormatException e) {
+            System.err.println("Error parsing number for addRestaurant: " + e.getMessage());
+            response.sendRedirect(request.getContextPath() + "/admin/restaurants?error=invalid_input");
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.sendRedirect(request.getContextPath() + "/admin/restaurants?error=add_failed");
+        }
+    }
+
+    private void deleteRestaurant(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        try {
+            int restaurantId = Integer.parseInt(request.getParameter("restaurantId"));
+            
+            // Call the DAO to delete the restaurant
+            restaurantDAO.deleteRestaurant(restaurantId);
+            
+            // Redirect back to the admin page to show the updated list
+            response.sendRedirect(request.getContextPath() + "/admin/restaurants?message=delete_success");
+        } catch (NumberFormatException e) {
+            System.err.println("Error parsing restaurantId for delete: " + e.getMessage());
+            response.sendRedirect(request.getContextPath() + "/admin/restaurants?error=invalid_id");
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.sendRedirect(request.getContextPath() + "/admin/restaurants?error=delete_failed");
+        }
+    }
+}

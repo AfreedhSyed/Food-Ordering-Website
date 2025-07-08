@@ -1,0 +1,29 @@
+# Ignore Java build files
+*.class
+*.war
+*.jar
+
+# Ignore logs and temp files
+*.log
+*.tmp
+
+# Eclipse/IDE specific
+.classpath
+.project
+.settings/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Ignore database credentials (if any)
+db.properties
+*.env
+
+# Ignore compiled output folders
+build/
+target/
+
+# Tomcat work/cache files
+work/
+temp/
